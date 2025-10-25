@@ -18,14 +18,14 @@ interface Message {
   timestamp: number
 }
 
-interface DebateSession {
+interface ExplorationSession {
   topic: string
   userViewpoint: string
   messages: Message[]
 }
 
 function App() {
-  const [session, setSession] = useKV<DebateSession | null>('debate-session', null)
+  const [session, setSession] = useKV<ExplorationSession | null>('exploration-session', null)
   const [topic, setTopic] = useState('')
   const [userViewpoint, setUserViewpoint] = useState('')
   const [currentMessage, setCurrentMessage] = useState('')
@@ -39,7 +39,7 @@ function App() {
     }
   }, [session?.messages])
 
-  const startDebate = async () => {
+  const startExploration = async () => {
     if (!topic.trim() || !userViewpoint.trim()) {
       toast.error('Please enter both a topic and your viewpoint')
       return
@@ -48,17 +48,17 @@ function App() {
     setIsGenerating(true)
 
     try {
-      const promptText = `You are a thoughtful debate partner. The user wants to discuss the following topic: "${topic}".
+      const promptText = `You are a thoughtful conversation partner helping explore different perspectives. The user wants to discuss the following topic: "${topic}".
 
 The user's viewpoint is: "${userViewpoint}".
 
-Your role is to take the OPPOSITE viewpoint from the user and present a respectful, well-reasoned opening argument. Be kind, acknowledge that the user's perspective has merit, but clearly present the opposing position. Keep your response conversational and engaging, around 3-4 sentences.
+Your role is to take the OPPOSITE viewpoint from the user and present a respectful, well-reasoned opening perspective. Be kind, acknowledge that the user's perspective has merit, but clearly present the opposing position. Keep your response conversational and engaging, around 3-4 sentences.
 
 Generate only your opening statement, nothing else.`
 
       const aiResponse = await window.spark.llm(promptText, 'gpt-4o')
 
-      const newSession: DebateSession = {
+      const newSession: ExplorationSession = {
         topic,
         userViewpoint,
         messages: [
@@ -74,9 +74,9 @@ Generate only your opening statement, nothing else.`
       setSession(newSession)
       setTopic('')
       setUserViewpoint('')
-      toast.success('Debate started!')
+      toast.success('Exploration started!')
     } catch (error) {
-      toast.error('Failed to start debate. Please try again.')
+      toast.error('Failed to start exploration. Please try again.')
       console.error(error)
     } finally {
       setIsGenerating(false)
@@ -106,7 +106,7 @@ Generate only your opening statement, nothing else.`
         .map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.content}`)
         .join('\n\n')
 
-      const promptText = `You are engaged in a respectful debate about "${session.topic}".
+      const promptText = `You are engaged in a respectful exploration of perspectives about "${session.topic}".
 
 The user's position is: "${session.userViewpoint}".
 Your position is the OPPOSITE of the user's viewpoint.
@@ -145,10 +145,10 @@ Generate only your response, nothing else.`
     }
   }
 
-  const resetDebate = () => {
+  const resetExploration = () => {
     setSession(null)
     setShowResetDialog(false)
-    toast.success('Ready for a new debate!')
+    toast.success('Ready for a new exploration!')
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -157,7 +157,7 @@ Generate only your response, nothing else.`
       if (session) {
         sendMessage()
       } else {
-        startDebate()
+        startExploration()
       }
     }
   }
@@ -178,10 +178,10 @@ Generate only your response, nothing else.`
                   <Lightbulb className="text-primary" size={32} weight="duotone" />
                 </div>
                 <h1 className="text-3xl font-semibold tracking-tight text-foreground">
-                  Debate Companion
+                  Perspective Explorer
                 </h1>
                 <p className="text-muted-foreground">
-                  Explore perspectives by debating with an AI that takes the opposing view
+                  Explore other perspectives through conversation with an AI that takes the opposing view
                 </p>
               </div>
 
@@ -190,7 +190,7 @@ Generate only your response, nothing else.`
               <div className="space-y-4">
                 <div className="space-y-2">
                   <label htmlFor="topic" className="text-sm font-medium">
-                    What topic would you like to debate?
+                    What topic would you like to explore?
                   </label>
                   <Textarea
                     id="topic"
@@ -219,12 +219,12 @@ Generate only your response, nothing else.`
                 </div>
 
                 <Button
-                  onClick={startDebate}
+                  onClick={startExploration}
                   disabled={isGenerating || !topic.trim() || !userViewpoint.trim()}
                   className="w-full"
                   size="lg"
                 >
-                  {isGenerating ? 'Starting Debate...' : 'Start Debate'}
+                  {isGenerating ? 'Starting...' : 'Start Exploring'}
                 </Button>
               </div>
             </div>
@@ -251,7 +251,7 @@ Generate only your response, nothing else.`
             className="shrink-0"
           >
             <Plus className="mr-2" size={16} />
-            New Debate
+            New Topic
           </Button>
         </div>
       </header>
@@ -346,17 +346,17 @@ Generate only your response, nothing else.`
       <Dialog open={showResetDialog} onOpenChange={setShowResetDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Start a new debate?</DialogTitle>
+            <DialogTitle>Explore a new topic?</DialogTitle>
             <DialogDescription>
-              This will end your current debate and clear the conversation history. This action cannot be undone.
+              This will end your current conversation and clear the history. This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowResetDialog(false)}>
               Cancel
             </Button>
-            <Button onClick={resetDebate}>
-              Start New Debate
+            <Button onClick={resetExploration}>
+              Start New Exploration
             </Button>
           </DialogFooter>
         </DialogContent>
