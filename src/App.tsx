@@ -2,12 +2,13 @@ import { useState, useEffect, useRef } from 'react'
 import { useKV } from '@github/spark/hooks'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { PaperPlaneRight, Plus, Lightbulb } from '@phosphor-icons/react'
+import { PaperPlaneRight, Plus, Lightbulb, Link } from '@phosphor-icons/react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 
@@ -21,6 +22,8 @@ interface Message {
 interface ExplorationSession {
   topic: string
   userViewpoint: string
+  referenceUrl?: string
+  referenceContent?: string
   messages: Message[]
 }
 
@@ -28,9 +31,11 @@ function App() {
   const [session, setSession] = useKV<ExplorationSession | null>('exploration-session', null)
   const [topic, setTopic] = useState('')
   const [userViewpoint, setUserViewpoint] = useState('')
+  const [referenceUrl, setReferenceUrl] = useState('')
   const [currentMessage, setCurrentMessage] = useState('')
   const [isGenerating, setIsGenerating] = useState(false)
   const [showResetDialog, setShowResetDialog] = useState(false)
+  const [isFetchingUrl, setIsFetchingUrl] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const lastAiMessageRef = useRef<HTMLDivElement>(null)
 
@@ -53,9 +58,48 @@ function App() {
     }
 
     setIsGenerating(true)
+    let referenceContent = ''
 
     try {
-      const promptText = `You are a thoughtful conversation partner helping explore different perspectives. The user wants to discuss the following topic: "${topic}".
+      if (referenceUrl.trim()) {
+        setIsFetchingUrl(true)
+        try {
+          const response = await fetch(referenceUrl.trim())
+          if (!response.ok) {
+            throw new Error('Failed to fetch URL')
+          }
+          const html = await response.text()
+          
+          const parser = new DOMParser()
+          const doc = parser.parseFromString(html, 'text/html')
+          
+          const scripts = doc.querySelectorAll('script, style, nav, footer, header')
+          scripts.forEach(el => el.remove())
+          
+          referenceContent = doc.body.textContent || ''
+          referenceContent = referenceContent.replace(/\s+/g, ' ').trim().substring(0, 8000)
+          
+          toast.success('Reference page loaded')
+        } catch (error) {
+          toast.error('Could not load reference URL. Continuing without it.')
+          console.error(error)
+        } finally {
+          setIsFetchingUrl(false)
+        }
+      }
+
+      const promptText = referenceContent 
+        ? `You are a thoughtful conversation partner helping explore different perspectives. The user wants to discuss the following topic: "${topic}".
+
+The user's viewpoint is: "${userViewpoint}".
+
+Reference information from a web page:
+${referenceContent}
+
+Your role is to take the OPPOSITE viewpoint from the user and present a respectful, well-reasoned opening perspective. Use the reference information to inform your understanding of the topic, but maintain your opposing stance. Be kind, acknowledge that the user's perspective has merit, but clearly present the opposing position. Keep your response conversational and engaging, around 3-4 sentences.
+
+Generate only your opening statement, nothing else.`
+        : `You are a thoughtful conversation partner helping explore different perspectives. The user wants to discuss the following topic: "${topic}".
 
 The user's viewpoint is: "${userViewpoint}".
 
@@ -68,6 +112,8 @@ Generate only your opening statement, nothing else.`
       const newSession: ExplorationSession = {
         topic,
         userViewpoint,
+        referenceUrl: referenceUrl.trim() || undefined,
+        referenceContent: referenceContent || undefined,
         messages: [
           {
             id: Date.now().toString(),
@@ -81,12 +127,14 @@ Generate only your opening statement, nothing else.`
       setSession(newSession)
       setTopic('')
       setUserViewpoint('')
+      setReferenceUrl('')
       toast.success('Exploration started!')
     } catch (error) {
       toast.error('Failed to start exploration. Please try again.')
       console.error(error)
     } finally {
       setIsGenerating(false)
+      setIsFetchingUrl(false)
     }
   }
 
@@ -113,11 +161,14 @@ Generate only your opening statement, nothing else.`
         .map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.content}`)
         .join('\n\n')
 
+      const referenceContext = session.referenceContent 
+        ? `\n\nReference information from ${session.referenceUrl}:\n${session.referenceContent}\n\n`
+        : ''
+
       const promptText = `You are engaged in a respectful exploration of perspectives about "${session.topic}".
 
 The user's position is: "${session.userViewpoint}".
-Your position is the OPPOSITE of the user's viewpoint.
-
+Your position is the OPPOSITE of the user's viewpoint.${referenceContext}
 Conversation so far:
 ${conversationHistory}
 
@@ -225,13 +276,31 @@ Generate only your response, nothing else.`
                   />
                 </div>
 
+                <div className="space-y-2">
+                  <label htmlFor="reference-url" className="text-sm font-medium flex items-center gap-2">
+                    <Link size={16} />
+                    Reference URL (optional)
+                  </label>
+                  <Input
+                    id="reference-url"
+                    type="url"
+                    placeholder="https://example.com/article"
+                    value={referenceUrl}
+                    onChange={(e) => setReferenceUrl(e.target.value)}
+                    onKeyDown={handleKeyPress}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Add a webpage for the AI to read and use as context
+                  </p>
+                </div>
+
                 <Button
                   onClick={startExploration}
-                  disabled={isGenerating || !topic.trim() || !userViewpoint.trim()}
+                  disabled={isGenerating || isFetchingUrl || !topic.trim() || !userViewpoint.trim()}
                   className="w-full"
                   size="lg"
                 >
-                  {isGenerating ? 'Starting...' : 'Start Exploring'}
+                  {isFetchingUrl ? 'Loading reference...' : isGenerating ? 'Starting...' : 'Start Exploring'}
                 </Button>
               </div>
             </div>
@@ -250,6 +319,17 @@ Generate only your response, nothing else.`
             <p className="text-sm text-muted-foreground truncate">
               Your view: {session.userViewpoint}
             </p>
+            {session.referenceUrl && (
+              <a 
+                href={session.referenceUrl} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-xs text-primary hover:underline flex items-center gap-1 mt-1"
+              >
+                <Link size={12} />
+                Reference: {new URL(session.referenceUrl).hostname}
+              </a>
+            )}
           </div>
           <Button
             onClick={() => setShowResetDialog(true)}
