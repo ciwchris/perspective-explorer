@@ -238,7 +238,7 @@ Generate only your response, nothing else.`
                   Perspective Explorer
                 </h1>
                 <p className="text-muted-foreground">
-                  Explore other perspectives through conversation with an AI that takes the opposing view
+                  Explore other perspectives through conversation with an AI
                 </p>
               </div>
 
@@ -251,7 +251,7 @@ Generate only your response, nothing else.`
                   </label>
                   <Textarea
                     id="topic"
-                    placeholder="e.g., Remote work is better than office work"
+                    placeholder="e.g., Return to office policies"
                     value={topic}
                     onChange={(e) => setTopic(e.target.value)}
                     onKeyDown={handleKeyPress}
