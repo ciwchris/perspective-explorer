@@ -32,10 +32,17 @@ function App() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [showResetDialog, setShowResetDialog] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const lastAiMessageRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    if (session?.messages && session.messages.length > 0) {
+      const lastMessage = session.messages[session.messages.length - 1]
+      
+      if (lastMessage.role === 'ai' && lastAiMessageRef.current) {
+        lastAiMessageRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      } else if (scrollRef.current) {
+        scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+      }
     }
   }, [session?.messages])
 
@@ -260,30 +267,35 @@ Generate only your response, nothing else.`
         <ScrollArea className="flex-1 p-4" ref={scrollRef}>
           <div className="space-y-4 pb-4">
             <AnimatePresence>
-              {session.messages.map((message, index) => (
-                <motion.div
-                  key={message.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, delay: index * 0.05 }}
-                  className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div className={`max-w-[85%] space-y-2 ${message.role === 'user' ? 'items-end' : 'items-start'} flex flex-col`}>
-                    <Badge variant={message.role === 'user' ? 'default' : 'secondary'} className="text-xs">
-                      {message.role === 'user' ? 'You' : 'AI'}
-                    </Badge>
-                    <Card className={`p-4 ${
-                      message.role === 'user' 
-                        ? 'bg-primary text-primary-foreground' 
-                        : 'bg-card'
-                    }`}>
-                      <p className="text-[15px] leading-relaxed whitespace-pre-wrap">
-                        {message.content}
-                      </p>
-                    </Card>
-                  </div>
-                </motion.div>
-              ))}
+              {session.messages.map((message, index) => {
+                const isLastAiMessage = message.role === 'ai' && index === session.messages.length - 1
+                
+                return (
+                  <motion.div
+                    key={message.id}
+                    ref={isLastAiMessage ? lastAiMessageRef : null}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: index * 0.05 }}
+                    className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div className={`max-w-[85%] space-y-2 ${message.role === 'user' ? 'items-end' : 'items-start'} flex flex-col`}>
+                      <Badge variant={message.role === 'user' ? 'default' : 'secondary'} className="text-xs">
+                        {message.role === 'user' ? 'You' : 'AI'}
+                      </Badge>
+                      <Card className={`p-4 ${
+                        message.role === 'user' 
+                          ? 'bg-primary text-primary-foreground' 
+                          : 'bg-card'
+                      }`}>
+                        <p className="text-[15px] leading-relaxed whitespace-pre-wrap">
+                          {message.content}
+                        </p>
+                      </Card>
+                    </div>
+                  </motion.div>
+                )
+              })}
             </AnimatePresence>
             {isGenerating && (
               <motion.div
