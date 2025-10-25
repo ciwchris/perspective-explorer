@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react'
-import { useKV } from '@github/spark/hooks'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
@@ -28,7 +27,7 @@ interface ExplorationSession {
 }
 
 function App() {
-  const [session, setSession] = useKV<ExplorationSession | null>('exploration-session', null)
+  const [session, setSession] = useState<ExplorationSession | null>(null)
   const [topic, setTopic] = useState('')
   const [userViewpoint, setUserViewpoint] = useState('')
   const [referenceUrl, setReferenceUrl] = useState('')
@@ -148,10 +147,10 @@ Generate only your opening statement, nothing else.`
       timestamp: Date.now()
     }
 
-    setSession((current) => ({
-      ...current!,
-      messages: [...current!.messages, userMessage]
-    }))
+      setSession((current) => ({
+        ...current!,
+        messages: [...current!.messages, userMessage]
+      }))
 
     setCurrentMessage('')
     setIsGenerating(true)
